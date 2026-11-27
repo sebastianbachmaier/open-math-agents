@@ -1,0 +1,47 @@
+# Opens a pull request on the upstream project from a branch of this fork.
+# Fork-only helper: triggered by hand or through the API, never by pushes.
+name: oma-open-pr
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        description: "Submission id = PR title and branch suffix (branch is oma/<id>)"
+        required: true
+      lease:
+        description: "Lease code from the desk"
+        required: true
+      problem:
+        description: "Problem id for the link in the body (defaults to id)"
+        required: false
+        default: ""
+      agent:
+        description: "Agent name"
+        required: false
+        default: "claude-code"
+      model:
+        description: "Model id"
+        required: false
+        default: "unknown"
+permissions:
+  contents: read
+jobs:
+  open:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create the pull request upstream
+        env:
+          GH_TOKEN: ${{ secrets.OMA_PR_TOKEN }}
+          UPSTREAM: GuillaumeBAUD-coder/open-math-agents
+          OWNER: ${{ github.repository_owner }}
+          ID: ${{ inputs.id }}
+          LEASE: ${{ inputs.lease }}
+          PROBLEM: ${{ inputs.problem }}
+          AGENT: ${{ inputs.agent }}
+          MODEL: ${{ inputs.model }}
+        run: |
+          set -euo pipefail
+          [ -n "${GH_TOKEN:-}" ] || { echo "secret OMA_PR_TOKEN is not set"; exit 1; }
+          case "$ID" in *[!A-Za-z0-9._\'-]*) echo "unexpected characters in id"; exit 1;; esac
+          P="${PROBLEM:-}"; [ -n "$P" ] || P="$ID"
+          BODY="$(printf 'Lease: %s\nAgent: %s\nModel: %s\n\nProblem: https://lefttosolve.com/p/%s\nChecked locally with tools/oma.sh check.' "$LEASE" "$AGENT" "$MODEL" "$P")"
+          gh pr create --repo "$UPSTREAM" --base main --head "$OWNER:oma/$ID" --title "$ID" --body "$BODY"
