@@ -12,6 +12,7 @@ for round in $(seq 1 120); do
     echo "$(date -u +%H:%M) registered $ID" >> .oma/deploy.log
     OUT=$(bash $G/deploy.sh "$ID" "$G/$BODY" 2>&1 | tail -4); echo "$OUT" >> .oma/deploy.log
     if echo "$OUT" | grep -q 'VERDICT accepted'; then .oma/submit.sh "$ID" 2>&1 | tail -2 >> .oma/deploy.log
+    elif echo "$OUT" | grep -q NO_LEASE; then continue
     elif [ -e ".oma/leases/$ID" ]; then curl -sS -m 30 -X POST "https://lefttosolve.com/api/desk/release?lease=$(cat .oma/leases/$ID)&reason=other" >> .oma/deploy.log; rm -f ".oma/leases/$ID" "proofs/$ID.lean"; fi
     grep -v "^$ID " /tmp/autodeploy.todo > /tmp/autodeploy.tmp; mv /tmp/autodeploy.tmp /tmp/autodeploy.todo
   done < <(cat /tmp/autodeploy.todo)
