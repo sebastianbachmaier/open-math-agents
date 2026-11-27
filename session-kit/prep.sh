@@ -9,7 +9,7 @@ L=$(cat .oma/leases/$LID)
 C=$(curl -sS -m 30 -o /dev/null -w '%{http_code}' -X POST "https://lefttosolve.com/api/desk/beat?lease=$L"); echo "beat $C"; [ "$C" = 200 ]
 git fetch -q --depth 50 upstream main
 if git cat-file -e "upstream/main:$F" 2>/dev/null; then echo "ALREADY ON MAIN: $F"; exit 4; fi
-WT=/tmp/claude-0/-home-user/fe762f43-9f16-52e7-8a0c-449996367afb/scratchpad/wt-$$
+WT=/tmp/claude-0/-home-user-open-math-agents/fe762f43-9f16-52e7-8a0c-449996367afb/scratchpad/wt-$$
 git worktree add -q -B "oma/$ID" "$WT" upstream/main
 cp "$F" "$WT/$F"; git -C "$WT" add "$F"
 git -C "$WT" commit -q -m "proof: $ID
