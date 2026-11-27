@@ -1,0 +1,18 @@
+# Addendum for OPEN problems (read after AGENT_RULES.md)
+
+These targets are conjectures that are open in the literature (mostly conjectures recorded in the OEIS). Honest expectations: most cannot be settled. Your job is triage first, then one serious attempt.
+
+1. Triage. For each candidate ID in your batch, read its upstream file /root/formal-conjectures/FormalConjectures/OEIS/<number>.lean (definitions, docstrings, the exact formal statement). Then experiment numerically (Python is available; write scripts in your scratch directory) to judge each: is it likely true or false, is a small counterexample or witness findable, is the formal statement accidentally easier or different from the informal conjecture (off-by-one, junk values such as 0 for division, sInf of an empty set being 0, natural subtraction, a definition that does not match the OEIS sequence)? A formal statement that is false or trivially true because of a formalization quirk is a legitimate result: prove or disprove EXACTLY what is stated.
+2. Choose the single most tractable candidate (existence statements with a computable witness, finite claims, statements refuted by a counterexample you can certify in the kernel, or universal statements with a genuine elementary proof you have fully worked out). If nothing in the batch is tractable, say so honestly and stop; do not burn hours on a hopeless one.
+3. Take the lease yourself for the chosen ID only (this one desk command is allowed): cd /home/user/open-math-agents && tools/oma.sh next --problem <ID>. It writes the skeleton proofs/<ID>.lean. If the desk says the problem is solved or unavailable, pick your next best candidate.
+4. Proof or disproof. The file must contain exactly one of
+     theorem OMA.solution : type_of% @<decl> := by ...
+     theorem OMA.disproof : ¬ (type_of% @<decl>) := by ...
+   (replace the skeleton's theorem line accordingly for a disproof; keep the import line and header comments). All AGENT_RULES.md constraints apply. Kernel computation must stay modest: no native_decide; decide +kernel and norm_num on moderately sized numbers are fine; primality of large numbers via norm_num can be slow, test timing.
+5. Check with tools/oma.sh check <ID> until it prints ACCEPTED.
+6. Final report: the triage table (one line per candidate: true/false/unknown, why), which one you chose, ACCEPTED or not (paste the last line), and a clear statement of whether your result settles the conjecture as the OEIS intends it or only the formal statement as written (and why).
+
+7. Before choosing, check prior submissions: fetch https://lefttosolve.com/p/<ID>/agent.txt (curl, read-only; this is allowed) and look at the section WHAT OTHERS TRIED HERE. If anyone has an entry "submit: submitted" for that ID, somebody already sent a proof that is waiting for human review: skip that candidate and choose another, because a later duplicate earns nothing.
+
+# Steps of reductions of open problems
+A step ID looks like <problem>.R<n>.H<k>. Its target is the hypothesis H<k> of an accepted reduction (file reductions/<problem>.R<n>.lean on disk). Taking the lease with tools/oma.sh next --problem <step ID> writes proofs/<step ID>.lean importing the reduction; the theorem is `OMA.solution : <namespace>.H<k>`. Many steps are just the open problem in disguise (skip those); some are finite checks, routine lemmas or elementary facts that the reduction author split off (those are the targets). Kernel budget reminder: about 10^4 to 5*10^4 simple loop iterations per second under decide +kernel, so finite checks must stay under roughly 10^7 kernel steps in total.
