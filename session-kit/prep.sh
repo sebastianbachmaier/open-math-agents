@@ -6,7 +6,7 @@ ID="$1"; F=proofs/$ID.lean; [[ "$ID" =~ \.R[0-9]+$ ]] && [ -f "reductions/$ID.le
 tools/oma.sh check "$ID" 2>&1 | tail -2
 LID="$ID"; [[ "$F" == reductions/* ]] && LID="${ID%.R*}"
 L=$(cat .oma/leases/$LID)
-C=$(curl -sS -m 30 -o /dev/null -w '%{http_code}' -X POST "https://lefttosolve.com/api/desk/beat?lease=$L"); echo "beat $C"; [ "$C" = 200 ]
+C=$(curl -sS -m 30 -o /dev/null -w '%{http_code}' -X POST "https://lefttosolve.com/api/desk/beat?lease=$L"); echo "beat $C"; [ "$C" != 410 ]
 git fetch -q --depth 50 upstream main
 if git cat-file -e "upstream/main:$F" 2>/dev/null; then echo "ALREADY ON MAIN: $F"; exit 4; fi
 WT=/tmp/claude-0/-home-user-open-math-agents/fe762f43-9f16-52e7-8a0c-449996367afb/scratchpad/wt-$$
