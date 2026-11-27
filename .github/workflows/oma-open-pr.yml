@@ -1,5 +1,8 @@
-# Opens a pull request on the upstream project from a branch of this fork.
-# Fork-only helper: triggered by hand or through the API, never by pushes.
+# Opens pull requests on the upstream project from branches of this fork.
+# Fork-only helper. Two triggers:
+#   1. by hand (Actions tab, Run workflow), giving id and lease;
+#   2. a push to the branch pr-requests that adds or changes files pr-requests/<id>.env
+#      (lines KEY=VALUE with ID, LEASE and optionally PROBLEM, AGENT, MODEL).
 name: oma-open-pr
 on:
   workflow_dispatch:
@@ -22,26 +25,48 @@ on:
         description: "Model id"
         required: false
         default: "unknown"
+  push:
+    branches: [pr-requests]
+    paths: ["pr-requests/**"]
 permissions:
   contents: read
 jobs:
   open:
     runs-on: ubuntu-latest
     steps:
-      - name: Create the pull request upstream
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Create the pull request(s) upstream
         env:
           GH_TOKEN: ${{ secrets.OMA_PR_TOKEN }}
           UPSTREAM: GuillaumeBAUD-coder/open-math-agents
           OWNER: ${{ github.repository_owner }}
-          ID: ${{ inputs.id }}
-          LEASE: ${{ inputs.lease }}
-          PROBLEM: ${{ inputs.problem }}
-          AGENT: ${{ inputs.agent }}
-          MODEL: ${{ inputs.model }}
+          EVENT: ${{ github.event_name }}
+          IN_ID: ${{ inputs.id }}
+          IN_LEASE: ${{ inputs.lease }}
+          IN_PROBLEM: ${{ inputs.problem }}
+          IN_AGENT: ${{ inputs.agent }}
+          IN_MODEL: ${{ inputs.model }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           [ -n "${GH_TOKEN:-}" ] || { echo "secret OMA_PR_TOKEN is not set"; exit 1; }
-          case "$ID" in *[!A-Za-z0-9._\'-]*) echo "unexpected characters in id"; exit 1;; esac
-          P="${PROBLEM:-}"; [ -n "$P" ] || P="$ID"
-          BODY="$(printf 'Lease: %s\nAgent: %s\nModel: %s\n\nProblem: https://lefttosolve.com/p/%s\nChecked locally with tools/oma.sh check.' "$LEASE" "$AGENT" "$MODEL" "$P")"
-          gh pr create --repo "$UPSTREAM" --base main --head "$OWNER:oma/$ID" --title "$ID" --body "$BODY"
+          val() { grep -m1 "^$2=" "$1" | cut -d= -f2- | tr -d '\r' || true; }
+          open_pr() {
+            local ID="$1" LEASE="$2" P="$3" AGENT="$4" MODEL="$5"
+            case "$ID" in ""|*[!A-Za-z0-9._\'-]*) echo "bad id: $ID"; return 1;; esac
+            case "$LEASE$P$AGENT$MODEL" in *[!A-Za-z0-9._\'\ -]*) echo "bad field for $ID"; return 1;; esac
+            [ -n "$P" ] || P="$ID"; [ -n "$AGENT" ] || AGENT=claude-code; [ -n "$MODEL" ] || MODEL=unknown
+            local BODY; BODY="$(printf 'Lease: %s\nAgent: %s\nModel: %s\n\nProblem: https://lefttosolve.com/p/%s\nChecked locally with tools/oma.sh check.' "$LEASE" "$AGENT" "$MODEL" "$P")"
+            echo "opening PR for $ID"
+            gh pr create --repo "$UPSTREAM" --base main --head "$OWNER:oma/$ID" --title "$ID" --body "$BODY"
+          }
+          RC=0
+          if [ "$EVENT" = workflow_dispatch ]; then
+            open_pr "$IN_ID" "$IN_LEASE" "$IN_PROBLEM" "$IN_AGENT" "$IN_MODEL" || RC=1
+          else
+            for F in $(git diff --name-only --diff-filter=AM HEAD^ HEAD -- pr-requests/ | grep '\.env$' || true); do
+              open_pr "$(val "$F" ID)" "$(val "$F" LEASE)" "$(val "$F" PROBLEM)" "$(val "$F" AGENT)" "$(val "$F" MODEL)" || RC=1
+            done
+          fi
+          exit $RC
